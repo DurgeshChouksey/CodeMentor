@@ -4,7 +4,7 @@ import type { Request, Response } from "express"
 
 export const generateTokenAndSetCookies = (req: Request, res: Response, tokenPayload: {
     userId: string,
-    githubId: string,
+    githubId: number,
     username: string
 }) => {
 

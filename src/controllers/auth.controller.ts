@@ -4,6 +4,8 @@ import type { Request, Response } from "express";
 import { BadRequestError } from "../utils/erros.js";
 import { generateTokenAndSetCookies } from "../utils/generateTokenAndSetCookies.js";
 import { PrismaClient } from "../generated/prisma/client.js";
+import { encrypt } from "../utils/crypto.js";
+import crypto from 'crypto'
 
 const GITHUB_OAUTH_URL = "https://github.com/login/oauth/authorize";
 const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
@@ -37,6 +39,9 @@ export const handleGitCallback = async (req: Request, res: Response) => {
     const email = githubUserData.email;
     const accessToken = githubUserData.accessToken;
 
+
+	const encryptedToken = encrypt(accessToken);
+
 	// save user on database
 	// write code to create user in database here
 	const user = await prisma.user.upsert({
@@ -51,7 +56,7 @@ export const handleGitCallback = async (req: Request, res: Response) => {
 			bio: githubUser.bio,
 			profileUrl: githubUser.html_url,
 
-			githubToken: accessToken, // store encrypted if needed
+			githubToken: encryptedToken, // store encrypted if needed
 			githubScope: scope,
 
 			publicRepos: githubUser.public_repos,
@@ -68,10 +73,8 @@ export const handleGitCallback = async (req: Request, res: Response) => {
 			avatarUrl: githubUser.avatar_url,
 			bio: githubUser.bio,
 			profileUrl: githubUser.html_url,
-
-			githubToken: accessToken,
+			githubToken: encryptedToken,
 			githubScope: scope,
-
 			publicRepos: githubUser.public_repos,
 			privateRepos: githubUser.total_private_repos,
 			followers: githubUser.followers,
@@ -82,7 +85,7 @@ export const handleGitCallback = async (req: Request, res: Response) => {
 	// generate jwt token payload
 	const tokenPayload: {
 		userId: string;
-		githubId: string;
+		githubId: number;
 		username: string;
 	} = {
 		userId: user.id,
@@ -123,7 +126,7 @@ const handleAccessTokenAndUserFetch = async (code: string) => {
 		client_id: config.GITHUB_CLIENT_ID,
 		client_secret: config.GITHUB_CLIENT_SECRET,
 		code,
-		redirect_url: config.GITHUB_CALLBACK_URL,
+		redirect_uri: config.GITHUB_CALLBACK_URL,
 	});
 
 	const accessTokenUrl = `${GITHUB_TOKEN_URL}?${accessTokenUrlParams.toString()}`;
@@ -135,6 +138,7 @@ const handleAccessTokenAndUserFetch = async (code: string) => {
 			headers: { "Content-Type": "application/x-www-form-urlencoded" },
 		}
 	);
+
 
 	const data = new URLSearchParams(response.data);
 
