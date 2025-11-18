@@ -5,103 +5,165 @@ import axios from "axios";
 import { BadRequestError } from "../utils/erros.js";
 import { decrypt } from "../utils/crypto.js";
 import { PrismaClient } from "../generated/prisma/client.js";
-
+import { uploadToS3 } from "../utils/uploadTos3.js";
+import { deleteFromS3 } from "../utils/deleteFroms3.js";
 
 export const fetchRepos = async (req: Request, res: Response) => {
-    const prisma = new PrismaClient();
-    const user = req.user;
+	const prisma = new PrismaClient();
+	const user = req.user;
 
-    if (!user || !user.userId) {
-        throw new BadRequestError("User not authenticated");
-    }
+	if (!user || !user.userId) {
+		throw new BadRequestError("User not authenticated");
+	}
 
-    // fetch encrypted token from DB
-    const record = await prisma.user.findUnique({
-        where: { id: user.userId },
-        select: { githubToken: true }
-    });
+	// fetch encrypted token from DB
+	const record = await prisma.user.findUnique({
+		where: { id: user.userId },
+		select: { githubToken: true },
+	});
 
-    if (!record?.githubToken) {
-        throw new BadRequestError("GitHub token not found");
-    }
+	if (!record?.githubToken) {
+		throw new BadRequestError("GitHub token not found");
+	}
 
-    // decrypt
-    const decryptedAccessToken = decrypt(record.githubToken);
+	// decrypt
+	const decryptedAccessToken = decrypt(record.githubToken);
 
-    // call GitHub API to fetch repos
-    const response = await fetch(
-        "https://api.github.com/user/repos?per_page=100&sort=updated",
-        {
-            headers: {
-                Authorization: `Bearer ${decryptedAccessToken}`,
-                "User-Agent": "CodeMentorAI",
-                Accept: "application/vnd.github+json",
-            },
-        }
-    );
+	// call GitHub API to fetch repos
+	const response = await fetch(
+		"https://api.github.com/user/repos?per_page=100&sort=updated",
+		{
+			headers: {
+				Authorization: `Bearer ${decryptedAccessToken}`,
+				"User-Agent": "CodeMentorAI",
+				Accept: "application/vnd.github+json",
+			},
+		}
+	);
 
-    if (!response.ok) {
-        console.log(await response.text());
-        throw new BadRequestError("Failed to fetch repos from GitHub");
-    }
+	if (!response.ok) {
+		console.log(await response.text());
+		throw new BadRequestError("Failed to fetch repos from GitHub");
+	}
 
-    const repos = await response.json();
+	const repos = await response.json();
 
-    return res.json({
-        success: true,
-        count: repos.length,
-        repos
-    });
+	return res.json({
+		success: true,
+		count: repos.length,
+		repos,
+	});
 };
 
-
 export const downloadRepo = async (req: Request, res: Response) => {
-    const prisma = new PrismaClient();
-    const user = req.user;
+	const prisma = new PrismaClient();
+	const user = req.user;
 
-    if (!user || !user.userId) {
-        throw new BadRequestError("User not authenticated");
-    }
+	if (!user || !user.userId) {
+		throw new BadRequestError("User not authenticated");
+	}
 
-    const { owner, repo, branch = "main" } = req.body;
+	const { owner, repo, branch = "main" } = req.body;
 
-    if (!owner || !repo) {
-        throw new BadRequestError("Owner and repo are required");
-    }
+	if (!owner || !repo) {
+		throw new BadRequestError("Owner and repo are required");
+	}
 
-    // fetch encrypted token from DB
-    const record = await prisma.user.findUnique({
-        where: { id: user.userId },
-        select: { githubToken: true }
-    });
+	// fetch encrypted token from DB
+	const record = await prisma.user.findUnique({
+		where: { id: user.userId },
+		select: { githubToken: true },
+	});
 
-    if (!record?.githubToken) {
-        throw new BadRequestError("GitHub token not found");
-    }
+	if (!record?.githubToken) {
+		throw new BadRequestError("GitHub token not found");
+	}
 
-    // decrypt token
-    const decryptedToken = decrypt(record.githubToken);
+	// decrypt token
+	const decryptedToken = decrypt(record.githubToken);
 
-    // correct GitHub ZIP URL
-    const zipUrl = `https://api.github.com/repos/${owner}/${repo}/zipball/${branch}`;
+	// check if the repo is already synced or up-to datae
+	const commitRes = await axios.get(
+		`https://api.github.com/repos/${owner}/${repo}/commits/${branch}`,
+		{
+			headers: {
+				Authorization: `Bearer ${decryptedToken}`,
+				"User-Agent": "CodeMentorAI",
+				Accept: "application/vnd.github+json",
+			},
+		}
+	);
 
-    // download repo zip from GitHub
-    const response = await axios.get(zipUrl, {
-        headers: {
-            Authorization: `Bearer ${decryptedToken}`,
-            "User-Agent": "CodeMentorAI",
-            Accept: "application/vnd.github+json",
-        },
-        responseType: "arraybuffer"   // IMPORTANT: zip is binary
-    });
+	const latestSha = commitRes.data.sha;
 
-    console.log(response);
+	// fetching existing repo details
+	const existing = await prisma.repoSync.findFirst({
+		where: {
+			fullName: `${owner}/${repo}`,
+		},
+	});
 
-    // set correct response headers to force download
-    res.set({
-        "Content-Type": "application/zip",
-        "Content-Disposition": `attachment; filename=${repo}.zip`
-    });
+	if (existing && existing.lastCommitSha === latestSha) {
+		return res.json({
+			success: true,
+			message: "Repo is already synced. No changes detected.",
+			s3Key: existing.s3Key,
+		});
+	}
 
-    return res.send(response.data);
+	if (existing?.s3Key) {
+		await deleteFromS3(existing.s3Key);
+	}
+
+	// correct GitHub ZIP URL
+	const zipUrl = `https://api.github.com/repos/${owner}/${repo}/zipball/${branch}`;
+
+	// download repo zip from GitHub
+	const response = await axios.get(zipUrl, {
+		headers: {
+			Authorization: `Bearer ${decryptedToken}`,
+			"User-Agent": "CodeMentorAI",
+			Accept: "application/vnd.github+json",
+		},
+		responseType: "arraybuffer", // IMPORTANT: zip is binary
+	});
+
+	const zipBuffer: Buffer = Buffer.from(response.data);
+
+	// ---------- UPLOAD TO S3 HERE ----------
+	const s3Key: string = `${user.userId}/${repo}-${Date.now()}.zip`;
+
+	const uploadResult: any = await uploadToS3(zipBuffer, s3Key);
+
+	// --- upsert into repoSync ---
+	const fullName = `${owner}/${repo}`;
+
+	await prisma.repoSync.upsert({
+		where: { fullName },
+		create: {
+			userId: user.userId,
+			owner,
+			repo,
+			fullName,
+			lastCommitSha: latestSha,
+			s3Key: s3Key,
+		},
+		update: {
+			lastCommitSha: latestSha,
+			s3Key: s3Key,
+		},
+	});
+
+	// set correct response headers to force download
+	// res.set({
+	// 	"Content-Type": "application/zip",
+	// 	"Content-Disposition": `attachment; filename=${repo}.zip`,
+	// });
+
+	return res.json({
+		success: true,
+		message: "Repo downloaded & uploaded to S3",
+		s3Key: uploadResult.key,
+		s3Url: uploadResult.url,
+	});
 };

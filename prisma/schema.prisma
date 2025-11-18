@@ -35,6 +35,18 @@ model User {
 
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
-
 }
 
+model RepoSync {
+  id            String   @id @default(uuid())
+  userId        String
+  owner         String
+  repo          String
+  fullName      String   // example: "DurgeshChouksey/ApiVerseBackend"
+  lastCommitSha String
+  s3Key         String   // S3 key for the ZIP
+  updatedAt     DateTime @updatedAt
+  createdAt     DateTime @default(now())
+
+  @@unique([fullName])
+}
