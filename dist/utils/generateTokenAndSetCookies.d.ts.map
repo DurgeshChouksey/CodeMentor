@@ -1,0 +1,1 @@
+{"version":3,"file":"generateTokenAndSetCookies.d.ts","sourceRoot":"","sources":["../../src/utils/generateTokenAndSetCookies.ts"],"names":[],"mappings":"AAEA,OAAO,KAAK,EAAE,OAAO,EAAE,QAAQ,EAAE,MAAM,SAAS,CAAA;AAEhD,eAAO,MAAM,0BAA0B,GAAI,KAAK,OAAO,EAAE,KAAK,QAAQ,EAAE,cAAc;IAClF,MAAM,EAAE,MAAM,CAAC;IACf,QAAQ,EAAE,MAAM,CAAC;IACjB,QAAQ,EAAE,MAAM,CAAA;CACnB,SAyBA,CAAA"}

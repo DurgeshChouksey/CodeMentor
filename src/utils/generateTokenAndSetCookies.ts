@@ -18,16 +18,16 @@ export const generateTokenAndSetCookies = (req: Request, res: Response, tokenPay
 
     res.cookie('accessToken', jwtAccessToken, {
         httpOnly: true,
-        secure: false,
-        sameSite: 'lax',
+        sameSite: "none",
+        secure: true,
         path: '/',
         maxAge: 2*60*60*1000
     })
 
     res.cookie('refreshToken', jwtRefreshToken, {
         httpOnly: true,
-        secure: false,
-        sameSite: 'lax',
+        sameSite: "none",
+        secure: true,
         path: '/',
         maxAge: 7*24*60*60*1000
     })
