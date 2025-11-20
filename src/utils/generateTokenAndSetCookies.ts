@@ -16,19 +16,22 @@ export const generateTokenAndSetCookies = (req: Request, res: Response, tokenPay
         expiresIn: '7d'
     })
 
-    res.cookie('accessToken', jwtAccessToken, {
-        httpOnly: true,
-        sameSite: "none",
-        secure: true,
-        path: '/',
-        maxAge: 2*60*60*1000
-    })
+    const isProduction = process.env.NODE_ENV === "production";
 
-    res.cookie('refreshToken', jwtRefreshToken, {
+
+    res.cookie("accessToken", jwtAccessToken, {
         httpOnly: true,
-        sameSite: "none",
-        secure: true,
-        path: '/',
-        maxAge: 7*24*60*60*1000
-    })
+        secure: isProduction,               // true on Cloud Run, false on localhost
+        sameSite: isProduction ? "none" : "lax",
+        path: "/",
+        maxAge: 2 * 60 * 60 * 1000,
+    });
+
+    res.cookie("refreshToken", jwtRefreshToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? "none" : "lax",
+        path: "/",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
 }

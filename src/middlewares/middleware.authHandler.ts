@@ -1,18 +1,17 @@
 import type { Request, Response, NextFunction } from "express";
 // Extend Express Request to include user
 declare module "express-serve-static-core" {
-    interface Request {
-        user?: {
-            userId: string;
-            githubId: number;
-            username: string;
-        };
-    }
+	interface Request {
+		user?: {
+			userId: string;
+			githubId: number;
+			username: string;
+		};
+	}
 }
 import config from "../config/config.js";
 import jwt from "jsonwebtoken";
 import { BadRequestError } from "../utils/erros.js";
-
 
 export const authHandler = (
 	req: Request,
@@ -50,13 +49,23 @@ export const authHandler = (
 			{ expiresIn: "2h" }
 		);
 
+		const isProduction = process.env.NODE_ENV === "production";
+
 		res.cookie("accessToken", newAccessToken, {
-            httpOnly: true,
-            sameSite: "none",
+			httpOnly: true,
+			secure: isProduction, // true on Cloud Run, false on localhost
+			sameSite: isProduction ? "none" : "lax",
+			path: "/",
+			maxAge: 2 * 60 * 60 * 1000,
+		});
+
+		res.cookie("accessToken", newAccessToken, {
+			httpOnly: true,
+			sameSite: "none",
 			secure: true,
-            maxAge: 2*60*60*1000,
-            path: "/"
-        });
+			maxAge: 2 * 60 * 60 * 1000,
+			path: "/",
+		});
 	}
 
 	const decoded = jwt.verify(accessToken, config.JWT_TOKEN_SECRET);
@@ -65,11 +74,11 @@ export const authHandler = (
 		console.log("failed access");
 	}
 	if (typeof decoded !== "string") {
-	    req.user = decoded as {
-	        userId: string;
-	        githubId: number;
-	        username: string;
-	    };
+		req.user = decoded as {
+			userId: string;
+			githubId: number;
+			username: string;
+		};
 	}
 	next();
 };
