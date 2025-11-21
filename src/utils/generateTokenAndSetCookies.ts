@@ -18,6 +18,8 @@ export const generateTokenAndSetCookies = (req: Request, res: Response, tokenPay
 
     const isProduction = process.env.NODE_ENV === "production";
 
+    console.log(isProduction);
+
 
     res.cookie("accessToken", jwtAccessToken, {
         httpOnly: true,
@@ -29,7 +31,7 @@ export const generateTokenAndSetCookies = (req: Request, res: Response, tokenPay
 
     res.cookie("refreshToken", jwtRefreshToken, {
         httpOnly: true,
-        secure: isProduction,
+        secure: isProduction,               // true on Cloud Run, false on localhost
         sameSite: isProduction ? "none" : "lax",
         path: "/",
         maxAge: 7 * 24 * 60 * 60 * 1000,

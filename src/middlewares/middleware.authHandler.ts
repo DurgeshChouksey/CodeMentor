@@ -53,16 +53,8 @@ export const authHandler = (
 
 		res.cookie("accessToken", newAccessToken, {
 			httpOnly: true,
-			secure: isProduction, // true on Cloud Run, false on localhost
-			sameSite: isProduction ? "none" : "lax",
-			path: "/",
-			maxAge: 2 * 60 * 60 * 1000,
-		});
-
-		res.cookie("accessToken", newAccessToken, {
-			httpOnly: true,
-			sameSite: "none",
-			secure: true,
+			secure: isProduction,               // true on Cloud Run, false on localhost
+        sameSite: isProduction ? "none" : "lax",
 			maxAge: 2 * 60 * 60 * 1000,
 			path: "/",
 		});
