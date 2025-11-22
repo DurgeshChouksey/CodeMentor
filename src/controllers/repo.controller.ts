@@ -110,7 +110,7 @@ export const downloadRepo = async (req: Request, res: Response) => {
 			body: { s3Key: existing.s3Key, userId: user.userId },
 		});
 
-		// // call worker from here
+		// // call pworker from here
 		// await axios.post("http://localhost:3000/api/v1/worker/process", {
 		// 	s3Key: existing.s3Key,
 		// 	userId: user.userId,
