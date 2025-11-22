@@ -7,6 +7,7 @@ import { decrypt } from "../utils/crypto.js";
 import { PrismaClient } from "../generated/prisma/client.js";
 import { uploadToS3 } from "../utils/uploadTos3.js";
 import { deleteFromS3 } from "../utils/deleteFroms3.js";
+import { qstash } from "../utils/qstash.js";
 
 export const fetchRepos = async (req: Request, res: Response) => {
 	const prisma = new PrismaClient();
@@ -42,7 +43,6 @@ export const fetchRepos = async (req: Request, res: Response) => {
 	);
 
 	if (!response.ok) {
-		console.log(await response.text());
 		throw new BadRequestError("Failed to fetch repos from GitHub");
 	}
 
@@ -58,7 +58,6 @@ export const fetchRepos = async (req: Request, res: Response) => {
 export const downloadRepo = async (req: Request, res: Response) => {
 	const prisma = new PrismaClient();
 	const user = req.user;
-
 
 	if (!user || !user.userId) {
 		throw new BadRequestError("User not authenticated");
@@ -105,6 +104,18 @@ export const downloadRepo = async (req: Request, res: Response) => {
 	});
 
 	if (existing && existing.lastCommitSha === latestSha) {
+		// call qstash for the woker process
+		await qstash.publishJSON({
+			url: "https://codementor-backend-394002869559.asia-south1.run.app/api/v1/worker/process",
+			body: { s3Key: existing.s3Key, userId: user.userId },
+		});
+
+		// // call worker from here
+		// await axios.post("http://localhost:3000/api/v1/worker/process", {
+		// 	s3Key: existing.s3Key,
+		// 	userId: user.userId,
+		// });
+
 		return res.json({
 			success: true,
 			message: "Repo is already synced. No changes detected.",
@@ -155,6 +166,30 @@ export const downloadRepo = async (req: Request, res: Response) => {
 		},
 	});
 
+	// create a job entry in the RepoJob collectoin
+	const job = await prisma.repoJob.create({
+		data: {
+			userId: user.userId,
+			repoId: `${owner}/${repo}`,
+			status: "processing",
+		},
+	});
+
+	const jobId = job.id;
+
+	// call worker locally
+	// await axios.post("http://localhost:3000/api/v1/worker/process", {
+	// 	s3Key,
+	// 	userId: user.userId,
+	// });
+
+	// call qstash for the woker process
+	await qstash.publishJSON({
+		url: "https://codementor-backend-394002869559.asia-south1.run.app/api/v1/worker/process",
+		body: { jobId, s3Key, userId: user.userId },
+	});
+
+	// if you want to send zip as a downloadble file
 	// set correct response headers to force download
 	// res.set({
 	// 	"Content-Type": "application/zip",

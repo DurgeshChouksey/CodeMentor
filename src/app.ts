@@ -7,11 +7,20 @@ import cors from 'cors'
 const app = express();
 
 // middlewares
-app.use(express.json());
+import bodyParser from "body-parser";
+
+app.use(
+  bodyParser.json({
+    verify: (req: any, res, buf) => {
+      req.rawBody = buf; // 👈 Store raw buffer
+    },
+  })
+);
 app.use(cookieParser());
 app.use(
   cors({
     origin: [
+      "http://localhost:5173",
       "https://test-frontend-six-dun.vercel.app",
     ],
     credentials: true,

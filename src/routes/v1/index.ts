@@ -1,6 +1,7 @@
 import express from "express";
 import authRouter from "./auth.routes.js"
 import repoRouter from "./repo.routes.js"
+import workerRouter from "./worker.routes.js"
 const router = express.Router();
 
 router.get('/', (req, res) => {
@@ -12,6 +13,7 @@ router.get('/', (req, res) => {
 
 router.use('/auth/github', authRouter);
 router.use('/repos', repoRouter)
+router.use('/worker', workerRouter);
 
 
 export default router;
