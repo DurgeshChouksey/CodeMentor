@@ -39,8 +39,6 @@ export const handleGitCallback = async (req: Request, res: Response) => {
 	const email = githubUserData.email;
 	const accessToken = githubUserData.accessToken;
 
-	console.log(githubUserData);
-
 	const encryptedToken = encrypt(accessToken);
 
 	// save user on database

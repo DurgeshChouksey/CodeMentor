@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+model User {
+  id              String       @id @default(cuid())
+  githubId        Int       @unique              // GitHub user id
+  username        String    @unique              // GitHub username
+  name            String?
+  email           String?                        // may be null
+  avatarUrl       String?
+  bio             String?
+  profileUrl      String?                         // https://github.com/<username>
+
+  githubToken     String                          // encrypted GitHub token (repo scope)
+  githubScope     String?                         // store exact scopes approved by user
+
+  publicRepos     Int?                             // maybe useful for analytics
+  privateRepos    Int?
+  followers       Int?
+  following       Int?
+
+  role            String     @default("user")      // user | admin
+  plan            String     @default("free")      // free | pro | enterprise
+
+  onboardingDone  Boolean    @default(false)
+
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+}
+
+model RepoSync {
+  id            String   @id @default(uuid())
+  userId        String
+  owner         String
+  repo          String
+  fullName      String   // example: "DurgeshChouksey/ApiVerseBackend"
+  lastCommitSha String
+  s3Key         String   // S3 key for the ZIP
+  updatedAt     DateTime @updatedAt
+  createdAt     DateTime @default(now())
+
+  @@unique([fullName])
+}
+
+model RepoJob {
+  id        String   @id @default(uuid())
+  userId    String
+  repoId    String
+  status    String   @default("processing")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
