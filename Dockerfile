@@ -20,6 +20,9 @@ WORKDIR /app
 # Copy package.json first for caching
 COPY package*.json ./
 
+# ⛔ Prevent @xenova/transformers from downloading models during install
+ENV TRANSFORMERS_NO_REMOTE=1
+
 # Install dependencies
 RUN npm install
 
@@ -32,8 +35,6 @@ RUN npx prisma generate
 # Build TypeScript
 RUN npm run build
 
-# Expose port (Cloud Run will override but safe)
 EXPOSE 3000
 
-# Start server
 CMD ["node", "dist/server.js"]

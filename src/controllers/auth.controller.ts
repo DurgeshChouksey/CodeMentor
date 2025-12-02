@@ -5,7 +5,7 @@ import { BadRequestError } from "../utils/erros.js";
 import { generateTokenAndSetCookies } from "../utils/generateTokenAndSetCookies.js";
 import { PrismaClient } from "../generated/prisma/client.js";
 import { encrypt } from "../utils/crypto.js";
-import crypto from 'crypto'
+import crypto from "crypto";
 
 const GITHUB_OAUTH_URL = "https://github.com/login/oauth/authorize";
 const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
@@ -26,19 +26,20 @@ export const gitLogin = (req: Request, res: Response) => {
 export const handleGitCallback = async (req: Request, res: Response) => {
 	const { code, error } = req.query as { code?: string; error?: string };
 
-    // exchange code for token and fetch user details
+	// exchange code for token and fetch user details
 	const githubUserData: {
 		githubUser: any;
-        accessToken: string;
+		accessToken: string;
 		scope: string | null;
 		email: string | null;
 	} = await handleAccessTokenAndUserFetch(code!);
 
-    const githubUser = githubUserData.githubUser;
-    const scope = githubUserData.scope;
-    const email = githubUserData.email;
-    const accessToken = githubUserData.accessToken;
+	const githubUser = githubUserData.githubUser;
+	const scope = githubUserData.scope;
+	const email = githubUserData.email;
+	const accessToken = githubUserData.accessToken;
 
+	console.log(githubUserData);
 
 	const encryptedToken = encrypt(accessToken);
 
@@ -93,9 +94,9 @@ export const handleGitCallback = async (req: Request, res: Response) => {
 		username: githubUserData.githubUser.login,
 	};
 
-    // generate jwt token
+	// generate jwt token
 	generateTokenAndSetCookies(req, res, tokenPayload);
-	
+
 	return res.redirect("http://localhost:5173/dashboard");
 };
 
@@ -128,7 +129,6 @@ const handleAccessTokenAndUserFetch = async (code: string) => {
 	});
 
 	const accessTokenUrl = `${GITHUB_TOKEN_URL}?${accessTokenUrlParams.toString()}`;
-
 	const response = await axios.post(
 		accessTokenUrl,
 		{},
@@ -136,7 +136,6 @@ const handleAccessTokenAndUserFetch = async (code: string) => {
 			headers: { "Content-Type": "application/x-www-form-urlencoded" },
 		}
 	);
-
 
 	const data = new URLSearchParams(response.data);
 
@@ -166,7 +165,7 @@ const handleAccessTokenAndUserFetch = async (code: string) => {
 
 	return {
 		githubUser,
-        accessToken: accessToken,
+		accessToken: accessToken,
 		scope: scope ?? null,
 		email: email ?? null,
 	};

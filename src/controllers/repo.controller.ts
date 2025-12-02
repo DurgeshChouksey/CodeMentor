@@ -104,11 +104,6 @@ export const downloadRepo = async (req: Request, res: Response) => {
 	});
 
 	if (existing && existing.lastCommitSha === latestSha) {
-		// call qstash for the woker process
-		// await qstash.publishJSON({
-		// 	url: "http://codementor-backend-394002869559.asia-south1.run.app/api/v1/worker/process",
-		// 	body: { s3Key: existing.s3Key, userId: user.userId },
-		// });
 
 		const job = await prisma.repoJob.create({
 			data: {
@@ -118,7 +113,16 @@ export const downloadRepo = async (req: Request, res: Response) => {
 			},
 		});
 
-		// call worker from here
+
+		// call qstash for the woker process
+		// await qstash.publishJSON({
+		// 	url: "http://codementor-backend-394002869559.asia-south1.run.app/api/v1/worker/process",
+		// 	body: { s3Key: existing.s3Key, userId: user.userId },
+		// });
+
+
+
+		// call worker from here (for localhost)
 		await axios.post("http://localhost:3000/api/v1/worker/process", {
 			jobId: job.id,
 			s3Key: existing.s3Key,
@@ -157,9 +161,6 @@ export const downloadRepo = async (req: Request, res: Response) => {
 
 	const uploadResult: any = await uploadToS3(zipBuffer, s3Key);
 
-	console.log("**** _____ *****")
-	console.log(uploadResult)
-
 	// --- upsert into repoSync ---
 	const fullName = `${owner}/${repo}`;
 
@@ -190,7 +191,7 @@ export const downloadRepo = async (req: Request, res: Response) => {
 
 	const jobId = job.id;
 
-	// call worker locally
+	// call worker locally (for localhost)
 	const response2 = await axios.post(
 		"http://localhost:3000/api/v1/worker/process",
 		{
