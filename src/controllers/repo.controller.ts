@@ -105,18 +105,28 @@ export const downloadRepo = async (req: Request, res: Response) => {
 
 	if (existing && existing.lastCommitSha === latestSha) {
 		// call qstash for the woker process
-		await qstash.publishJSON({
-			url: "https://codementor-backend-394002869559.asia-south1.run.app/api/v1/worker/process",
-			body: { s3Key: existing.s3Key, userId: user.userId },
-		});
-
-		// // call pworker from here
-		// await axios.post("http://localhost:3000/api/v1/worker/process", {
-		// 	s3Key: existing.s3Key,
-		// 	userId: user.userId,
+		// await qstash.publishJSON({
+		// 	url: "http://codementor-backend-394002869559.asia-south1.run.app/api/v1/worker/process",
+		// 	body: { s3Key: existing.s3Key, userId: user.userId },
 		// });
 
+		const job = await prisma.repoJob.create({
+			data: {
+				userId: user.userId,
+				repoId: `${owner}/${repo}`,
+				status: "processing",
+			},
+		});
+
+		// call worker from here
+		await axios.post("http://localhost:3000/api/v1/worker/process", {
+			jobId: job.id,
+			s3Key: existing.s3Key,
+			userId: user.userId,
+		});
+
 		return res.json({
+			job,
 			success: true,
 			message: "Repo is already synced. No changes detected.",
 			s3Key: existing.s3Key,
@@ -146,6 +156,9 @@ export const downloadRepo = async (req: Request, res: Response) => {
 	const s3Key: string = `${user.userId}/${repo}-${Date.now()}.zip`;
 
 	const uploadResult: any = await uploadToS3(zipBuffer, s3Key);
+
+	console.log("**** _____ *****")
+	console.log(uploadResult)
 
 	// --- upsert into repoSync ---
 	const fullName = `${owner}/${repo}`;
@@ -178,16 +191,21 @@ export const downloadRepo = async (req: Request, res: Response) => {
 	const jobId = job.id;
 
 	// call worker locally
-	// await axios.post("http://localhost:3000/api/v1/worker/process", {
-	// 	s3Key,
-	// 	userId: user.userId,
-	// });
+	const response2 = await axios.post(
+		"http://localhost:3000/api/v1/worker/process",
+		{
+			jobId,
+			s3Key,
+			userId: user.userId,
+		}
+	);
+
 
 	// call qstash for the woker process
-	await qstash.publishJSON({
-		url: "https://codementor-backend-394002869559.asia-south1.run.app/api/v1/worker/process",
-		body: { jobId, s3Key, userId: user.userId },
-	});
+	// await qstash.publishJSON({
+	// 	url: "https://codementor-backend-394002869559.asia-south1.run.app/api/v1/worker/process",
+	// 	body: { jobId, s3Key, userId: user.userId },
+	// });
 
 	// if you want to send zip as a downloadble file
 	// set correct response headers to force download
@@ -197,9 +215,10 @@ export const downloadRepo = async (req: Request, res: Response) => {
 	// });
 
 	return res.json({
+		job,
 		success: true,
 		message: "Repo downloaded & uploaded to S3",
-		s3Key: uploadResult.key,
-		s3Url: uploadResult.url,
+		uploadResult,
+		s3Key
 	});
 };

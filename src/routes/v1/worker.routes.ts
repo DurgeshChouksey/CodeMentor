@@ -4,6 +4,6 @@ import { processRepo } from "../../controllers/worker.controller.js";
 
 const router = express.Router();
 
-router.post("/process", qstashValidator, processRepo);
+router.post("/process", processRepo);
 
 export default router;

@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { processRepository } from "../services/repoProcessor.js";
 import { PrismaClient } from "../generated/prisma/client.js";
+import { fetchRepoChunks } from "../utils/vector.js";
 
 export const processRepo = async (req: Request, res: Response) => {
     const prisma = new PrismaClient();

@@ -95,10 +95,8 @@ export const handleGitCallback = async (req: Request, res: Response) => {
 
     // generate jwt token
 	generateTokenAndSetCookies(req, res, tokenPayload);
-
-	res.json({
-		msg: "done!",
-	});
+	
+	return res.redirect("http://localhost:5173/dashboard");
 };
 
 export const gitLogout = (req: Request, res: Response) => {
